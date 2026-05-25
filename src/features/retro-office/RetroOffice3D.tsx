@@ -25,7 +25,7 @@ import {
   useState,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, OrbitControls } from "@react-three/drei";
+import { Environment, OrbitControls, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
 import { AtmImmersiveScreen } from "@/features/office/screens/AtmImmersiveScreen";
@@ -225,6 +225,12 @@ import {
   TrailSystem as AgentTrailSystem,
 } from "@/features/retro-office/systems/visualSystems";
 import type { OfficeCleaningCue } from "@/lib/office/janitorReset";
+import {
+  HUB_GENERAL_MARKETING_ZONE,
+  HUB_GRUPO_MALORY_TITLE,
+  HUB_GRUPO_MALORY_ZONES,
+  resolveHubAgentActivity,
+} from "@/lib/hub/grupoMalory";
 
 type OfficeDeskMonitorMap = Record<string, OfficeDeskMonitor>;
 type RenderAgentUiSnapshot = Pick<RenderAgent, "state" | "status">;
@@ -2241,6 +2247,95 @@ const buildInitialFurnitureLayout = (
     ),
   );
 
+function HubZonePlate({
+  label,
+  sectors,
+  color,
+  accent,
+  x,
+  y,
+  w,
+  h,
+}: {
+  label: string;
+  sectors: string;
+  color: string;
+  accent: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}) {
+  const [wx, , wz] = toWorld(x, y);
+  const worldWidth = w / SCALE;
+  const worldHeight = h / SCALE;
+
+  return (
+    <group position={[wx, 0.012, wz]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[worldWidth, worldHeight]} />
+        <meshBasicMaterial color={color} transparent opacity={0.18} />
+      </mesh>
+      <mesh position={[0, 0.004, -worldHeight / 2 + 0.04]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[worldWidth, 0.028]} />
+        <meshBasicMaterial color={accent} transparent opacity={0.65} />
+      </mesh>
+      <Text
+        position={[-worldWidth / 2 + 0.08, 0.03, -worldHeight / 2 + 0.12]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        fontSize={0.07}
+        color="#f6ead7"
+        anchorX="left"
+        anchorY="middle"
+        maxWidth={worldWidth - 0.16}
+      >
+        {label}
+      </Text>
+      <Text
+        position={[-worldWidth / 2 + 0.08, 0.032, -worldHeight / 2 + 0.23]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        fontSize={0.04}
+        color={accent}
+        anchorX="left"
+        anchorY="middle"
+        maxWidth={worldWidth - 0.16}
+      >
+        {sectors}
+      </Text>
+    </group>
+  );
+}
+
+function HubGrupoMaloryZones() {
+  return (
+    <group>
+      {HUB_GRUPO_MALORY_ZONES.map((zone) => (
+        <HubZonePlate
+          key={zone.id}
+          label={zone.label}
+          sectors={zone.sectors.map((sector) => sector.label).join(" / ")}
+          color={zone.color}
+          accent={zone.accent}
+          x={zone.x}
+          y={zone.y}
+          w={zone.w}
+          h={zone.h}
+        />
+      ))}
+      <HubZonePlate
+        label={HUB_GENERAL_MARKETING_ZONE.label}
+        sectors="Transversal a todas as marcas"
+        color={HUB_GENERAL_MARKETING_ZONE.color}
+        accent={HUB_GENERAL_MARKETING_ZONE.accent}
+        x={HUB_GENERAL_MARKETING_ZONE.x}
+        y={HUB_GENERAL_MARKETING_ZONE.y}
+        w={HUB_GENERAL_MARKETING_ZONE.w}
+        h={HUB_GENERAL_MARKETING_ZONE.h}
+      />
+    </group>
+  );
+}
+
 export function RetroOffice3D({
   agents,
   officeCenterSignal = 0,
@@ -2266,7 +2361,7 @@ export function RetroOffice3D({
   githubSkill = null,
   taskManagerEnabled = false,
   soundclawEnabled = false,
-  officeTitle = "Luke Headquarters",
+  officeTitle = HUB_GRUPO_MALORY_TITLE,
   officeTitleLoaded = false,
   remoteOfficeEnabled = false,
   remoteOfficeSourceKind = "presence_endpoint",
@@ -2604,6 +2699,17 @@ export function RetroOffice3D({
   const suppressSceneSpeechBubbles =
     standupMeeting?.phase === "gathering" ||
     standupMeeting?.phase === "in_progress";
+  const hubActivityByAgentId = useMemo(
+    () =>
+      Object.fromEntries(
+        agents
+          .map((agent) => [agent.id, resolveHubAgentActivity(agent.id, agent.name)] as const)
+          .filter((entry): entry is readonly [string, NonNullable<ReturnType<typeof resolveHubAgentActivity>>] =>
+            entry[1] !== null,
+          ),
+      ),
+    [agents],
+  );
   // New Idea 2: camera preset target ref (shared into Canvas).
   const cameraPresetRef = useRef<{
     pos: [number, number, number];
@@ -5266,6 +5372,7 @@ export function RetroOffice3D({
 
             {/* Floor + walls — always visible, no async loading. */}
             <SceneFloorAndWalls showRemoteOffice={remoteOfficeEnabled} />
+            {!remoteOfficeEnabled ? <HubGrupoMaloryZones /> : null}
 
             {/* Wall pictures — procedural, no async loading. */}
             <SceneWallPictures showRemoteOffice={remoteOfficeEnabled} />
@@ -5710,13 +5817,22 @@ export function RetroOffice3D({
             {/* Agents — purely imperative, driven by renderAgentsRef inside useFrame. */}
             {sceneAgents.map((agent) => {
               const isJanitor = "role" in agent && agent.role === "janitor";
+              const hubActivity = isJanitor ? null : hubActivityByAgentId[agent.id] ?? null;
+              const isCalled =
+                !isJanitor &&
+                (spotlightAgentId === agent.id ||
+                  hubActivity?.visualState === "called");
               return (
                 <AgentObjectModel
                   key={agent.id}
                   agentId={agent.id}
                   name={agent.name}
                   subtitle={"subtitle" in agent ? agent.subtitle ?? null : null}
-                  status={agent.status}
+                  status={
+                    hubActivity?.visualState === "working"
+                      ? "working"
+                      : agent.status
+                  }
                   color={agentColorMap.get(agent.id) ?? "#888"}
                   appearance={
                     "avatarProfile" in agent
@@ -5750,6 +5866,13 @@ export function RetroOffice3D({
                     suppressSceneSpeechBubbles &&
                     standupMeeting?.currentSpeakerAgentId !== agent.id
                   }
+                  activityText={hubActivity?.text ?? null}
+                  contextLabel={
+                    hubActivity
+                      ? `${hubActivity.brand} · ${hubActivity.sector}`
+                      : null
+                  }
+                  called={isCalled}
                 />
               );
             })}

@@ -557,10 +557,99 @@ const DEFAULT_FURNITURE: FurnitureSeed[] = [
   { type: "chair", x: 100, y: 200, facing: 180 },
 ];
 
+const HUB_GRUPO_MALORY_FURNITURE: FurnitureSeed[] = [
+  { type: "desk_cubicle", x: 190, y: 190, id: "wowlog_dispatcher" },
+  { type: "chair", x: 210, y: 180, facing: 180 },
+  { type: "computer", x: 210, y: 177 },
+  { type: "keyboard", x: 220, y: 185 },
+  { type: "mouse", x: 242, y: 185 },
+
+  { type: "desk_cubicle", x: 500, y: 185, id: "connect_dispatcher" },
+  { type: "chair", x: 520, y: 175, facing: 180 },
+  { type: "computer", x: 520, y: 172 },
+  { type: "keyboard", x: 530, y: 180 },
+  { type: "mouse", x: 552, y: 180 },
+  { type: "desk_cubicle", x: 620, y: 185, id: "connect_comercial" },
+  { type: "chair", x: 640, y: 175, facing: 180 },
+  { type: "computer", x: 640, y: 172 },
+  { type: "keyboard", x: 650, y: 180 },
+  { type: "mouse", x: 672, y: 180 },
+  { type: "desk_cubicle", x: 560, y: 265, id: "connect_desenvolvedor" },
+  { type: "chair", x: 580, y: 255, facing: 180 },
+  { type: "computer", x: 580, y: 252 },
+  { type: "keyboard", x: 590, y: 260 },
+  { type: "mouse", x: 612, y: 260 },
+
+  { type: "round_table", x: 500, y: 365, r: 62 },
+  { type: "chair", x: 565, y: 365, facing: 270 },
+  { type: "chair", x: 500, y: 430, facing: 180 },
+  { type: "chair", x: 435, y: 365, facing: 90 },
+  { type: "chair", x: 500, y: 300, facing: 0 },
+  { type: "whiteboard", x: 392, y: 330, w: 10, h: 86 },
+  { type: "kanban_board", x: 610, y: 330, facing: 270 },
+
+  { type: "desk_cubicle", x: 220, y: 510, id: "iai_marketing" },
+  { type: "chair", x: 240, y: 500, facing: 180 },
+  { type: "computer", x: 240, y: 497 },
+  { type: "keyboard", x: 250, y: 505 },
+  { type: "mouse", x: 272, y: 505 },
+
+  { type: "desk_cubicle", x: 550, y: 505, id: "oxepay_comercial" },
+  { type: "chair", x: 570, y: 495, facing: 180 },
+  { type: "computer", x: 570, y: 492 },
+  { type: "keyboard", x: 580, y: 500 },
+  { type: "mouse", x: 602, y: 500 },
+  { type: "desk_cubicle", x: 670, y: 505, id: "oxepay_financeiro" },
+  { type: "chair", x: 690, y: 495, facing: 180 },
+  { type: "computer", x: 690, y: 492 },
+  { type: "keyboard", x: 700, y: 500 },
+  { type: "mouse", x: 722, y: 500 },
+  { type: "desk_cubicle", x: 550, y: 585, id: "oxepay_operacional" },
+  { type: "chair", x: 570, y: 575, facing: 180 },
+  { type: "computer", x: 570, y: 572 },
+  { type: "keyboard", x: 580, y: 580 },
+  { type: "mouse", x: 602, y: 580 },
+  { type: "desk_cubicle", x: 670, y: 585, id: "oxepay_pos_venda" },
+  { type: "chair", x: 690, y: 575, facing: 180 },
+  { type: "computer", x: 690, y: 572 },
+  { type: "keyboard", x: 700, y: 580 },
+  { type: "mouse", x: 722, y: 580 },
+
+  { type: "couch", x: 930, y: 390, w: 100, h: 40, facing: 90 },
+  { type: "table_rect", x: 920, y: 390, w: 58, h: 30, facing: 270 },
+  { type: "beanbag", x: 995, y: 330, color: "#43515f", facing: 90 },
+  { type: "beanbag", x: 995, y: 450, color: "#5d5140", facing: 90 },
+
+  { type: "round_table", x: 900, y: 135, r: 46 },
+  { type: "chair", x: 942, y: 135, facing: 270 },
+  { type: "chair", x: 858, y: 135, facing: 90 },
+  { type: "chair", x: 900, y: 180, facing: 180 },
+
+  { type: "plant", x: 60, y: 50 },
+  { type: "plant", x: 415, y: 120 },
+  { type: "plant", x: 830, y: 120 },
+  { type: "plant", x: 160, y: 640 },
+  { type: "plant", x: 850, y: 650 },
+  { type: "bookshelf", x: 760, y: 30, w: 80, h: 120 },
+  { type: "clock", x: 550, y: 5 },
+  { type: "jukebox", x: 30, y: 380, facing: 90 },
+  { type: "phone_booth", x: 1040, y: 190, facing: 270 },
+  { type: "sms_booth", x: 700, y: 20, facing: 0 },
+  { type: "atm", x: 430, y: 210, facing: 90 },
+  { type: "pingpong", x: 950, y: 600, w: 100, h: 60 },
+  { type: "trash", x: 820, y: 520 },
+  { type: "vending", x: 820, y: 20 },
+];
+
 export const materializeDefaults = (
   preset: OfficeLayoutPreset = "office",
 ): FurnitureItem[] =>
-  (preset === "lobby" ? DEFAULT_LOBBY_FURNITURE : DEFAULT_FURNITURE).map((item, index) => ({
+  (preset === "lobby"
+    ? DEFAULT_LOBBY_FURNITURE
+    : process.env.NEXT_PUBLIC_USE_LEGACY_OFFICE_LAYOUT === "1"
+      ? DEFAULT_FURNITURE
+    : HUB_GRUPO_MALORY_FURNITURE
+  ).map((item, index) => ({
     ...item,
     _uid: `${preset}_${index}`,
   }));

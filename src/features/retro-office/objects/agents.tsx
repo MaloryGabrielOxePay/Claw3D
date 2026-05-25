@@ -63,6 +63,9 @@ export const AgentModel = memo(function AgentModel({
   showSpeech = false,
   speechText = null,
   suppressSpeechBubble = false,
+  activityText = null,
+  contextLabel = null,
+  called = false,
 }: AgentModelProps) {
   const groupRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Group>(null);
@@ -336,18 +339,20 @@ export const AgentModel = memo(function AgentModel({
 
     if (statusDotMatRef.current) {
       statusDotMatRef.current.color.set(
-        isError ? "#ef4444" : working ? "#22c55e" : "#f59e0b",
+        isError ? "#ef4444" : called ? "#facc15" : working ? "#22c55e" : "#f59e0b",
       );
     }
 
     if (pulseRingRef.current && pulseRingMatRef.current) {
-      if (working || isError) {
+      if (called || working || isError) {
         const pulse = (Math.sin(agent.frame * 0.05) + 1) / 2;
-        const scale = isError ? 1.25 + pulse * 0.55 : 1.2 + pulse * 0.8;
+        const scale = called ? 1.35 + pulse * 0.95 : isError ? 1.25 + pulse * 0.55 : 1.2 + pulse * 0.8;
         pulseRingRef.current.scale.setScalar(scale);
-        pulseRingMatRef.current.color.set(isError ? "#ef4444" : "#22c55e");
+        pulseRingMatRef.current.color.set(isError ? "#ef4444" : called ? "#facc15" : "#22c55e");
         pulseRingMatRef.current.opacity = isError
           ? 0.7 - pulse * 0.3
+          : called
+            ? 0.72 - pulse * 0.42
           : 0.55 - pulse * 0.45;
         pulseRingRef.current.visible = true;
       } else {
@@ -486,7 +491,11 @@ export const AgentModel = memo(function AgentModel({
     if (speechBubbleRef.current) {
       const bubbleVisible =
         !suppressSpeechBubble &&
-        (showSpeech || bumpTalking || ambientBubbleVisible);
+        (showSpeech ||
+          called ||
+          Boolean(activityText?.trim()) ||
+          bumpTalking ||
+          ambientBubbleVisible);
       speechBubbleRef.current.visible = bubbleVisible;
       if (bubbleVisible) {
         if (showSpeech && speechText?.trim()) {
@@ -611,10 +620,14 @@ export const AgentModel = memo(function AgentModel({
   const resolvedSpeechText =
     showSpeech && speechText?.trim()
       ? speechText.trim()
+      : activityText?.trim()
+        ? activityText.trim()
       : status === "error"
         ? "error"
         : "...";
-  const activeSpeechBubble = showSpeech && Boolean(speechText?.trim());
+  const activeSpeechBubble =
+    (showSpeech && Boolean(speechText?.trim())) ||
+    Boolean(activityText?.trim());
   const normalizedSpeechBubbleText = activeSpeechBubble
     ? flattenSpeechBubbleMarkdown(resolvedSpeechText)
     : resolvedSpeechText;
@@ -671,7 +684,12 @@ export const AgentModel = memo(function AgentModel({
     : "transparent";
   const speechBubbleBorderInset = activeSpeechBubble ? 0.03 : 0;
   const nameplateText = name ? formatAgentNameplateText(name) : "";
-  const subtitleText = typeof subtitle === "string" ? subtitle.trim() : "";
+  const subtitleText =
+    typeof contextLabel === "string" && contextLabel.trim()
+      ? contextLabel.trim()
+      : typeof subtitle === "string"
+        ? subtitle.trim()
+        : "";
   const nameplateFontSize =
     nameplateText.length > 9 ? 0.118 : nameplateText.length > 7 ? 0.13 : 0.144;
 

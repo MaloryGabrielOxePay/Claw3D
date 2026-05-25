@@ -43,4 +43,7 @@ export type AgentModelProps = {
   showSpeech?: boolean;
   speechText?: string | null;
   suppressSpeechBubble?: boolean;
+  activityText?: string | null;
+  contextLabel?: string | null;
+  called?: boolean;
 };
