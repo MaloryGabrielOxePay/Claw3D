@@ -8,7 +8,11 @@ import { useCallback, useEffect, useState } from "react";
 
 const STORAGE_KEY = "claw3d:onboarding:completed";
 
+const SKIP_ONBOARDING =
+  process.env.NEXT_PUBLIC_CLAW3D_SKIP_ONBOARDING === "true";
+
 const readCompleted = (): boolean => {
+  if (SKIP_ONBOARDING) return true;
   if (typeof window === "undefined") return false;
   try {
     return window.localStorage.getItem(STORAGE_KEY) === "true";

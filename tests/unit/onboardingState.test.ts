@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useOnboardingState } from "@/features/onboarding/useOnboardingState";
 
@@ -59,5 +59,45 @@ describe("useOnboardingState", () => {
     });
     expect(result.current.showOnboarding).toBe(true);
     expect(window.localStorage.getItem("claw3d:onboarding:completed")).toBeNull();
+  });
+
+  describe("with NEXT_PUBLIC_CLAW3D_SKIP_ONBOARDING=true", () => {
+    const originalValue = process.env.NEXT_PUBLIC_CLAW3D_SKIP_ONBOARDING;
+
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_CLAW3D_SKIP_ONBOARDING = "true";
+      vi.resetModules();
+    });
+
+    afterEach(() => {
+      if (originalValue === undefined) {
+        delete process.env.NEXT_PUBLIC_CLAW3D_SKIP_ONBOARDING;
+      } else {
+        process.env.NEXT_PUBLIC_CLAW3D_SKIP_ONBOARDING = originalValue;
+      }
+      vi.resetModules();
+    });
+
+    it("never shows onboarding regardless of localStorage", async () => {
+      window.localStorage.removeItem("claw3d:onboarding:completed");
+      const { useOnboardingState: hook } = await import(
+        "@/features/onboarding/useOnboardingState"
+      );
+      const { result } = renderHook(() => hook());
+      expect(result.current.showOnboarding).toBe(false);
+    });
+
+    it("overrides 'not completed' localStorage (env var wins)", async () => {
+      // Without the patch this would return showOnboarding=true (localStorage says
+      // not completed). With the patch, the env var short-circuits readCompleted()
+      // to return true, so showOnboarding stays false. This is the real regression
+      // signal for the env-var skip behavior.
+      window.localStorage.setItem("claw3d:onboarding:completed", "false");
+      const { useOnboardingState: hook } = await import(
+        "@/features/onboarding/useOnboardingState"
+      );
+      const { result } = renderHook(() => hook());
+      expect(result.current.showOnboarding).toBe(false);
+    });
   });
 });

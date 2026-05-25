@@ -1,8 +1,13 @@
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
+const isBrowserOnLoopback = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return LOOPBACK_HOSTS.has(window.location.hostname);
+};
+
 export const resolveStudioProxyGatewayUrl = (upstreamGatewayUrl?: string): string => {
   const raw = typeof upstreamGatewayUrl === "string" ? upstreamGatewayUrl.trim() : "";
-  if (raw) {
+  if (raw && isBrowserOnLoopback()) {
     try {
       const parsed = new URL(raw);
       if (LOOPBACK_HOSTS.has(parsed.hostname)) {
