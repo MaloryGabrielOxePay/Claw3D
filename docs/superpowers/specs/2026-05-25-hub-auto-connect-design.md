@@ -232,3 +232,35 @@ Em uma máquina dev (sem a env var):
 - Auto-pareamento de devices browser-side (já feito separadamente via `openclaw-auto-approve.timer`)
 - Pipeline CI/CD para deploy automático (próximo step, spec separada)
 - Refatoração do `ConnectStep` para esconder campos vestigiais (UX cleanup, separado)
+
+## Addendum (descoberto durante execução)
+
+Os dois patches descritos acima eram necessários **mas insuficientes** para um deploy real contra um OpenClaw atual. Três issues adicionais apareceram durante a execução do plano e tiveram que ser resolvidas:
+
+### 1. Bump de protocolo gateway v3 → v4
+
+OpenClaw `2026.5.18` exige `minProtocol <= 4 && maxProtocol >= 4` no handshake. O fork está hard-coded em `min=3, max=3`. Sem o bump, conexão é fechada com `protocol mismatch` antes de qualquer auth. Fix: `maxProtocol: 4` em `src/lib/gateway/openclaw/GatewayBrowserClient.ts` e `src/lib/gateway/nodeGatewayClient.ts`. `min` fica em `3` pra preservar compatibilidade com gateways antigos.
+
+### 2. Proxy server-side não injetava token quando browser mandava device-auth
+
+`server/gateway-proxy.js` na função `forwardConnectFrame` considera o frame "autenticado" quando o browser envia qualquer um de `auth.token / auth.password / auth.deviceToken / device.{id,publicKey,signature,nonce,signedAt}`. O browser do HUB sempre gera um keypair de sessão e manda `device.*` — o que dispara a heurística de "browser já tem auth" → proxy NÃO injeta o token do servidor → gateway recusa porque o device é desconhecido. Fix: condicionar a injeção apenas a credenciais **non-device** (token/password/deviceToken). Quando injetar, **dropar** o `device` da request porque ele aponta pra um keypair que o gateway upstream não conhece. **Manter** o `client.id="openclaw-control-ui"` (renomear pra `webchat-ui` reduz scopes — perde `operator.read`/`operator.admin`).
+
+### 3. `~/.openclaw/claw3d/settings.json` é necessário pro auto-connect disparar
+
+`GatewayClient.ts` linha 991: `if (!hasLastKnownGoodState) return;` — auto-connect só dispara se houver um `lastKnownGood` válido em settings.json. Sem isso, o usuário tem que clicar Connect manualmente. Solução de deploy: pre-criar `~/.openclaw/claw3d/settings.json` com `gateway.lastKnownGood` populado. **Caveat:** `src/lib/studio/settings-store.ts:179-193` tem bug honesto — quando settings.gateway.token é vazio, o loader rebuilda o gateway e **descarta lastKnownGood**. Workaround: pôr o token real em settings.json (mesma sensibilidade que `openclaw.json`, ambos `0600`). Fix permanente seria patchear o loader pra preservar lastKnownGood no merge — tracked como issue separada.
+
+### 4. `UPSTREAM_ALLOWLIST` e `NEXT_PUBLIC_CLAW3D_SKIP_ONBOARDING` no systemd
+
+- `UPSTREAM_ALLOWLIST=localhost,127.0.0.1` é exigido pelo proxy em `NODE_ENV=production`, senão recusa upstream com warning.
+- `NEXT_PUBLIC_CLAW3D_SKIP_ONBOARDING=true` é o env var do patch 2 do spec original.
+
+Ambos devem estar no `claw3d-hub.service` `[Service]` block.
+
+### Verificação final
+
+End-to-end testado via Chrome MCP (Claude in Chrome extension) em browser remoto contra `hub.grupomalory.com`:
+- Página carrega direto em `/office` sem dialog
+- Header mostra `OPENCLAW • CONNECTED`
+- Roster lista o agente `main` com avatar
+- Chat panel abre, agente responde
+- Gateway journal mostra `res ✓` para `cron.list`, `config.get`, `status`, `skills.status`
