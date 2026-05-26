@@ -228,11 +228,12 @@ function createGatewayProxy(options) {
     };
 
     const forwardConnectFrame = (frame) => {
-      const browserHasAuth =
+      const browserHasNonDeviceAuth =
         hasNonEmptyToken(frame.params) ||
         hasNonEmptyPassword(frame.params) ||
-        hasNonEmptyDeviceToken(frame.params) ||
-        hasCompleteDeviceAuth(frame.params);
+        hasNonEmptyDeviceToken(frame.params);
+      const browserHasDeviceAuth = hasCompleteDeviceAuth(frame.params);
+      const browserHasAuth = browserHasNonDeviceAuth || browserHasDeviceAuth;
 
       const requiresToken = upstreamAdapterType === "openclaw";
       if (requiresToken && !upstreamToken && !browserHasAuth) {
@@ -243,30 +244,32 @@ function createGatewayProxy(options) {
         return;
       }
 
-      const baseConnectFrame = browserHasAuth
-        ? frame
-        : {
+      // Inject the upstream token unless the browser already provided a non-device
+      // credential (token / password / deviceToken). Browser-generated device-auth
+      // alone is NOT sufficient because the gateway has no record of the unpaired
+      // device — the server-side token is the canonical auth in proxied deployments.
+      const shouldInjectToken =
+        requiresToken && upstreamToken && !browserHasNonDeviceAuth;
+      const baseConnectFrame = shouldInjectToken
+        ? {
             ...frame,
             params: injectAuthToken(frame.params, upstreamToken),
-          };
+          }
+        : frame;
 
       const connectParams = isObject(baseConnectFrame.params)
         ? { ...baseConnectFrame.params }
         : {};
-      const hasDeviceAuth = hasCompleteDeviceAuth(connectParams);
       const client = isObject(connectParams.client) ? { ...connectParams.client } : {};
       const clientId = typeof client.id === "string" ? client.id.trim() : "";
 
-      if (
-        upstreamAdapterType === "openclaw" &&
-        clientId === "openclaw-control-ui" &&
-        !hasDeviceAuth
-      ) {
-        client.id = "webchat-ui";
-        connectParams.client = client;
-        if (isObject(connectParams.device) && !hasCompleteDeviceAuth(connectParams)) {
-          delete connectParams.device;
-        }
+      // Drop the browser-supplied device fingerprint when we inject the upstream
+      // token: it points to a session-local keypair that the upstream gateway has
+      // no record of, and keeping it would force the gateway to take a device-auth
+      // path that fails. The gateway grants full operator scopes for token auth
+      // ONLY when client.id stays "openclaw-control-ui", so we never rename it.
+      if (shouldInjectToken && isObject(connectParams.device)) {
+        delete connectParams.device;
       }
 
       const connectFrame = {
